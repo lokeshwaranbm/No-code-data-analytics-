@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: no-code-backend
+    env: python
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    autoDeploy: true
+    plan: free
+    healthCheckPath: /health
+
+  - type: static
+    name: no-code-frontend
+    rootDir: frontend
+    buildCommand: "npm ci && npm run build"
+    staticPublishPath: "dist"
+    pullRequestPreviewsEnabled: true

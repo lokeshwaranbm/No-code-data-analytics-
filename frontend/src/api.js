@@ -1,5 +1,14 @@
 // Minimal API client for the prototype. Adjust base URL as needed.
 
+// Base URL for API in production deployments (set VITE_API_BASE_URL on Vercel/Render)
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) ? (import.meta.env.VITE_API_BASE_URL || '') : '';
+
+function url(path) {
+  if (!API_BASE) return path;
+  const base = API_BASE.replace(/\/$/, '');
+  return `${base}${path}`;
+}
+
 // Helper to get auth headers
 function getAuthHeaders() {
   const token = localStorage.getItem('authToken');
@@ -38,7 +47,7 @@ export async function uploadCsv(file) {
     }
   } catch {}
 
-  const resp = await fetch('/upload', {
+  const resp = await fetch(url('/upload'), {
     method: 'POST',
     body: form,
     headers: getAuthHeaders(),
@@ -60,7 +69,7 @@ export async function uploadCsv(file) {
 
 // Fetch inferred schema for a given original filename (not cleaned_ prefix)
 export async function fetchSchema(filename) {
-  const resp = await fetch(`/schema/${encodeURIComponent(filename)}`, {
+  const resp = await fetch(url(`/schema/${encodeURIComponent(filename)}`), {
     headers: getAuthHeaders()
   });
   if (!resp.ok) {
@@ -72,7 +81,7 @@ export async function fetchSchema(filename) {
 // Request a visualization preset
 // payload example: { preset: 'bar', x: 'category_col', y: 'value_col', agg: 'sum', limit: 20 }
 export async function visualize(filename, payload) {
-  const resp = await fetch(`/visualize/${encodeURIComponent(filename)}`, {
+  const resp = await fetch(url(`/visualize/${encodeURIComponent(filename)}`), {
     method: 'POST',
     headers: { 
       'Content-Type': 'application/json',
@@ -90,7 +99,7 @@ export async function visualize(filename, payload) {
 
 // Natural language to visualization
 export async function nlviz(filename, prompt) {
-  const resp = await fetch(`/nlviz/${encodeURIComponent(filename)}`, {
+  const resp = await fetch(url(`/nlviz/${encodeURIComponent(filename)}`), {
     method: 'POST',
     headers: { 
       'Content-Type': 'application/json',
