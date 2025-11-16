@@ -330,6 +330,234 @@ def delete_history(filename: str):
 def health():
     return {'status': 'ok'}
 
+
+# ============================================
+# ANOMALY DETECTION ENDPOINTS
+# ============================================
+
+@app.post('/anomalies/detect')
+async def detect_anomalies(
+    file: UploadFile = File(...),
+    sensitivity: str = Form(default='medium')
+):
+    """
+    Detect anomalies in uploaded dataset
+    Returns: Comprehensive anomaly report with alerts
+    """
+    from anomaly_detector import AnomalyDetector, save_alert
+    
+    # Read uploaded file
+    contents = await file.read()
+    try:
+        df = pd.read_csv(io.BytesIO(contents))
+    except:
+        df = pd.read_excel(io.BytesIO(contents))
+    
+    # Run detection
+    detector = AnomalyDetector(sensitivity=sensitivity)
+    report = detector.run_full_analysis(df)
+    
+    # Save alert if anomalies found
+    if report['total_anomalies'] > 0:
+        save_alert(file.filename, report)
+    
+    return report
+
+
+@app.get('/anomalies/alerts/{filename}')
+def get_anomaly_alerts(filename: str, limit: int = -1):
+    """Get saved anomaly alerts for a file"""
+    from anomaly_detector import get_alerts
+    return get_alerts(filename, limit)
+
+
+@app.delete('/anomalies/alerts/{filename}')
+def clear_anomaly_alerts(filename: str):
+    """Clear anomaly alerts for a file"""
+    from anomaly_detector import clear_alerts
+    cleared = clear_alerts(filename)
+    if cleared:
+        return {'status': 'success', 'message': f'Alerts cleared for {filename}'}
+    return {'status': 'warning', 'message': 'No alerts found'}
+
+
+# ============================================
+# WORKFLOW AUTOMATION ENDPOINTS
+# ============================================
+
+@app.post('/workflows/create')
+async def create_workflow(data: Dict[str, Any]):
+    """Create new workflow"""
+    from workflow_engine import engine, WorkflowAction, ActionType, TriggerType
+    
+    workflow = engine.create_workflow(
+        name=data['name'],
+        description=data.get('description', '')
+    )
+    
+    # Add actions
+    for action_data in data.get('actions', []):
+        action = WorkflowAction(
+            action_type=ActionType(action_data['type']),
+            params=action_data.get('params', {}),
+            name=action_data.get('name')
+        )
+        workflow.add_action(action)
+    
+    # Set trigger
+    if 'trigger' in data:
+        workflow.set_trigger(
+            TriggerType(data['trigger']['type']),
+            data['trigger'].get('config', {})
+        )
+    
+    engine._save_workflow(workflow)
+    return workflow.to_dict()
+
+
+@app.get('/workflows')
+def list_workflows():
+    """List all workflows"""
+    from workflow_engine import engine
+    return {'workflows': engine.list_workflows()}
+
+
+@app.get('/workflows/{workflow_id}')
+def get_workflow(workflow_id: str):
+    """Get workflow details"""
+    from workflow_engine import engine
+    workflow = engine.get_workflow(workflow_id)
+    if not workflow:
+        raise HTTPException(status_code=404, detail='Workflow not found')
+    return workflow.to_dict()
+
+
+@app.post('/workflows/{workflow_id}/execute')
+async def execute_workflow(workflow_id: str, context: Dict[str, Any] = None):
+    """Execute workflow"""
+    from workflow_engine import engine
+    result = await engine.execute_workflow(workflow_id, context or {})
+    return result
+
+
+@app.delete('/workflows/{workflow_id}')
+def delete_workflow(workflow_id: str):
+    """Delete workflow"""
+    from workflow_engine import engine
+    deleted = engine.delete_workflow(workflow_id)
+    if deleted:
+        return {'status': 'success', 'message': 'Workflow deleted'}
+    raise HTTPException(status_code=404, detail='Workflow not found')
+
+
+# ============================================
+# EMBEDDABLE WIDGETS ENDPOINTS
+# ============================================
+
+@app.post('/widgets/create')
+async def create_widget(data: Dict[str, Any]):
+    """Create embeddable widget"""
+    from embed_widgets import manager
+    
+    widget = manager.create_widget(
+        widget_type=data['widget_type'],
+        name=data['name'],
+        data_source=data.get('data_source', {}),
+        config=data.get('config', {})
+    )
+    
+    # Apply theme if provided
+    if 'theme' in data:
+        for key, value in data['theme'].items():
+            setattr(widget.theme, key, value)
+    
+    # Apply security settings
+    if 'security' in data:
+        for key, value in data['security'].items():
+            setattr(widget.security, key, value)
+    
+    manager._save_widget(widget)
+    return widget.to_dict()
+
+
+@app.get('/widgets')
+def list_widgets():
+    """List all embeddable widgets"""
+    from embed_widgets import manager
+    return {'widgets': manager.list_widgets()}
+
+
+@app.get('/widgets/{widget_id}')
+def get_widget(widget_id: str):
+    """Get widget details"""
+    from embed_widgets import manager
+    widget = manager.get_widget(widget_id)
+    if not widget:
+        raise HTTPException(status_code=404, detail='Widget not found')
+    return widget.to_dict()
+
+
+@app.get('/widgets/{widget_id}/embed')
+def get_embed_code(widget_id: str, format: str = 'html'):
+    """Get embed code for widget"""
+    from embed_widgets import manager
+    widget = manager.get_widget(widget_id)
+    if not widget:
+        raise HTTPException(status_code=404, detail='Widget not found')
+    
+    if format == 'html':
+        return {'code': widget.generate_embed_code()}
+    elif format == 'react':
+        return {'code': widget.generate_react_component()}
+    else:
+        raise HTTPException(status_code=400, detail='Invalid format. Use html or react')
+
+
+@app.put('/widgets/{widget_id}')
+async def update_widget(widget_id: str, updates: Dict[str, Any]):
+    """Update widget configuration"""
+    from embed_widgets import manager
+    success = manager.update_widget(widget_id, updates)
+    if success:
+        return {'status': 'success', 'message': 'Widget updated'}
+    raise HTTPException(status_code=404, detail='Widget not found')
+
+
+@app.delete('/widgets/{widget_id}')
+def delete_widget(widget_id: str):
+    """Delete widget"""
+    from embed_widgets import manager
+    deleted = manager.delete_widget(widget_id)
+    if deleted:
+        return {'status': 'success', 'message': 'Widget deleted'}
+    raise HTTPException(status_code=404, detail='Widget not found')
+
+
+@app.get('/api/embed/{widget_id}')
+async def serve_widget(widget_id: str, apiKey: str = None, origin: str = None):
+    """Serve widget content (called by iframe)"""
+    from embed_widgets import manager
+    
+    # Validate access
+    if not manager.validate_access(widget_id, apiKey or '', origin):
+        raise HTTPException(status_code=403, detail='Access denied')
+    
+    # Increment view count
+    manager.increment_view_count(widget_id)
+    
+    widget = manager.get_widget(widget_id)
+    
+    # Return widget HTML (simplified - in production, render actual widget)
+    return {
+        'widget_id': widget_id,
+        'name': widget.name,
+        'type': widget.widget_type,
+        'theme': widget.theme.to_dict(),
+        'config': widget.config,
+        'message': 'Widget data served'
+    }
+
+
 # Optional local run convenience
 if __name__ == '__main__':
     import uvicorn

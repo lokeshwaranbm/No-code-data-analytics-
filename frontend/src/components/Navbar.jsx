@@ -4,12 +4,18 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import WidgetsIcon from '@mui/icons-material/Widgets';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 
 const Navbar = ({ activeTab, onTabChange }) => {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', Icon: DashboardIcon },
     { id: 'reports', label: 'Reports', Icon: BarChartIcon },
     { id: 'ask-ai', label: 'Ask AI', Icon: SmartToyIcon },
+    { id: 'workflows', label: 'Workflows', Icon: AccountTreeIcon },
+    { id: 'widgets', label: 'Widgets', Icon: WidgetsIcon },
+    { id: 'notifications', label: 'Alerts', Icon: NotificationsActiveIcon },
     { id: 'settings', label: 'Settings', Icon: SettingsIcon },
   ];
 

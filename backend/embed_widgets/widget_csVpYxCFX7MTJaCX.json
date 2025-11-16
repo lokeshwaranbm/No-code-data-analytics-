@@ -1,0 +1,27 @@
+{
+  "widget_id": "widget_csVpYxCFX7MTJaCX",
+  "widget_type": "stats_card",
+  "name": "sales dashboard",
+  "data_source": {},
+  "config": {},
+  "theme": {
+    "primary_color": "#4F46E5",
+    "background_color": "#FFFFFF",
+    "text_color": "#1F2937",
+    "border_radius": "8px",
+    "font_family": "Inter, system-ui, sans-serif",
+    "shadow": "0 4px 6px rgba(0,0,0,0.1)",
+    "dark_mode": false
+  },
+  "security": {
+    "api_key": "zs8dPjYMafehYHCxKg-kNiMkHncSGEyRWNJU56r6UTA",
+    "allowed_domains": [],
+    "expires_at": null,
+    "rate_limit": 100,
+    "require_auth": false
+  },
+  "created_at": "2025-11-16T08:22:07.470717",
+  "last_updated": "2025-11-16T08:22:07.470717",
+  "view_count": 0,
+  "enabled": true
+}

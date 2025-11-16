@@ -18,6 +18,10 @@ import AskAI from './components/AskAI';
 import Settings from './components/Settings';
 import LiveAIChat from './components/LiveAIChat';
 import ChatHistory from './components/ChatHistory';
+import AnomalyAlerts from './components/AnomalyAlerts';
+import WorkflowBuilder from './components/WorkflowBuilder';
+import EmbedWidgets from './components/EmbedWidgets';
+import Notifications from './components/Notifications';
 import { uploadCsv } from './api';
 
 const App = () => {
@@ -77,6 +81,9 @@ const App = () => {
           activeTab === 'dashboard' ? 'Dashboard' :
           activeTab === 'reports' ? 'Reports' :
           activeTab === 'ask-ai' ? 'Ask AI' :
+          activeTab === 'workflows' ? 'Workflow Automation' :
+          activeTab === 'widgets' ? 'Embeddable Widgets' :
+          activeTab === 'notifications' ? 'Notifications' :
           activeTab === 'settings' ? 'Settings' : 'No-Code Data Analyst'
         }
       />
@@ -139,6 +146,12 @@ const App = () => {
             {/* Live AI Chat - Only show when data is loaded */}
             {originalFilename && (
               <>
+                {/* Anomaly Detection Alerts */}
+                <div className="mt-4">
+                  <AnomalyAlerts originalFilename={originalFilename} />
+                </div>
+
+                {/* Live AI Chat */}
                 <div className="mt-4">
                   <LiveAIChat 
                     originalFilename={originalFilename}
@@ -169,6 +182,27 @@ const App = () => {
       {activeTab === 'ask-ai' && (
         <div className="container my-4 page-fade-in">
           <AskAI originalFilename={originalFilename} insights={insights} />
+        </div>
+      )}
+
+      {/* Workflows Tab */}
+      {activeTab === 'workflows' && (
+        <div className="container my-4 page-fade-in">
+          <WorkflowBuilder />
+        </div>
+      )}
+
+      {/* Embed Widgets Tab */}
+      {activeTab === 'widgets' && (
+        <div className="container my-4 page-fade-in">
+          <EmbedWidgets />
+        </div>
+      )}
+
+      {/* Notifications Tab */}
+      {activeTab === 'notifications' && (
+        <div className="container my-4 page-fade-in">
+          <Notifications />
         </div>
       )}
 

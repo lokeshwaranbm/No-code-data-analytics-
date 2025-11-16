@@ -37,6 +37,22 @@ export default defineConfig({
       '/chat/export': {
         target: 'http://localhost:8000',
         changeOrigin: true
+      },
+      '/anomalies': {
+        target: 'http://localhost:8000',
+        changeOrigin: true
+      },
+      '/workflows': {
+        target: 'http://localhost:8000',
+        changeOrigin: true
+      },
+      '/widgets': {
+        target: 'http://localhost:8000',
+        changeOrigin: true
+      },
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true
       }
     }
   }
