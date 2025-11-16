@@ -1,0 +1,9 @@
+Order Date,Product,Selling Price,Discount
+2025-09-15,Alpha,120,5
+2025-09-20,Beta,80,10
+2025-10-01,Alpha,150,0
+2025-10-15,Beta,90,5
+2025-10-20,Gamma,200,15
+2025-10-25,Alpha,130,10
+2025-11-01,Beta,110,0
+2025-11-10,Gamma,220,20

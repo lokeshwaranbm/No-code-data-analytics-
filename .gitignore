@@ -1,0 +1,63 @@
+# OS/Editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Node/Vite (frontend)
+frontend/node_modules/
+frontend/.vite/
+frontend/node_modules/.vite/
+frontend/dist/
+frontend/.env*
+
+# Python (backend)
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.venv/
+venv/
+env/
+ENV/
+.env
+
+# API keys / secrets
+OpenAi_api.txt
+*api_key*.txt
+*.key
+
+# Logs
+*.log
+logs/
+
+# App generated artifacts
+backend/chat_histories/*
+!backend/chat_histories/.gitkeep
+backend/uploads/
+uploads/
+tmp/
+temp/
+data/
+*.sqlite3
+
+# Coverage
+coverage/
+.coverage*
+
+# Python packaging/build
+*.egg-info/
+.eggs/
+build/
+dist/
+htmlcov/
+.cache/
+
+# Jupyter
+.ipynb_checkpoints/

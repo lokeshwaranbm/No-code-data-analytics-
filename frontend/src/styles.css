@@ -1,0 +1,17 @@
+/* Small screen tweaks */
+@media (max-width: 576px) {
+  .container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .card .card-title {
+    font-size: 1rem;
+  }
+  .btn {
+    font-size: 0.95rem;
+  }
+  /* Slightly smaller plot legends on mobile */
+  .js-plotly-plot .legend {
+    font-size: 10px !important;
+  }
+}
