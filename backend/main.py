@@ -6,7 +6,7 @@ Returns: JSON containing filename, columns, row_count, cleaning_summary,
 
 Run with: uvicorn main:app --reload --port 8000
 """
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from dotenv import load_dotenv
@@ -14,7 +14,8 @@ import pandas as pd
 import json
 import os
 import io
-from typing import Any, Dict
+from typing import Any, Dict, List
+import time
 
 from data_cleaner import clean_csv_and_summary
 from eda_engine import generate_stats, generate_correlations, generate_charts
@@ -40,6 +41,21 @@ app.add_middleware(
     allow_methods=["*"]
     ,allow_headers=["*"]
 )
+
+# Initialize SQLite database for runs/metrics
+try:
+    from db import init_db, get_conn, now_ts
+    init_db()
+except Exception as _e:
+    # Safe to continue without DB if init fails; endpoints that use it will handle errors
+    print(f"[DB INIT] Warning: {type(_e).__name__}: {_e}")
+
+# Initialize authentication
+try:
+    from auth import init_auth_db
+    init_auth_db()
+except Exception as _e:
+    print(f"[AUTH INIT] Warning: {type(_e).__name__}: {_e}")
 
 
 @app.post('/upload')
@@ -436,7 +452,26 @@ def get_workflow(workflow_id: str):
 async def execute_workflow(workflow_id: str, context: Dict[str, Any] = None):
     """Execute workflow"""
     from workflow_engine import engine
+    start_ts = int(time.time())
     result = await engine.execute_workflow(workflow_id, context or {})
+    finish_ts = int(time.time())
+
+    # Persist run record to SQLite if available
+    try:
+        from db import get_conn
+        import json as _json
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO workflow_runs (workflow_id, status, started_at, finished_at, result_json, log)
+            VALUES (?,?,?,?,?,?)
+            """,
+            (workflow_id, result.get('status','unknown'), start_ts, finish_ts, _json.dumps(result), None)
+        )
+        conn.commit(); conn.close()
+    except Exception as _e:
+        print(f"[DB] Failed to log workflow run: {_e}")
+
     return result
 
 
@@ -448,6 +483,25 @@ def delete_workflow(workflow_id: str):
     if deleted:
         return {'status': 'success', 'message': 'Workflow deleted'}
     raise HTTPException(status_code=404, detail='Workflow not found')
+
+
+@app.get('/workflows/{workflow_id}/runs')
+def list_workflow_runs(workflow_id: str) -> Dict[str, Any]:
+    """List recent runs for a workflow (from SQLite)."""
+    try:
+        rows: List[dict] = []
+        from db import get_conn
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, status, started_at, finished_at FROM workflow_runs WHERE workflow_id=? ORDER BY id DESC LIMIT 50",
+            (workflow_id,)
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+        conn.close()
+        return { 'runs': rows }
+    except Exception as _e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch runs: {_e}")
 
 
 # ============================================
@@ -542,8 +596,16 @@ async def serve_widget(widget_id: str, apiKey: str = None, origin: str = None):
     if not manager.validate_access(widget_id, apiKey or '', origin):
         raise HTTPException(status_code=403, detail='Access denied')
     
-    # Increment view count
+    # Increment view count (file-based)
     manager.increment_view_count(widget_id)
+    # And record in SQLite if available
+    try:
+        from db import get_conn, now_ts
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("INSERT INTO widget_views (widget_id, viewed_at) VALUES (?,?)", (widget_id, now_ts()))
+        conn.commit(); conn.close()
+    except Exception as _e:
+        print(f"[DB] Failed to log widget view: {_e}")
     
     widget = manager.get_widget(widget_id)
     
@@ -556,6 +618,73 @@ async def serve_widget(widget_id: str, apiKey: str = None, origin: str = None):
         'config': widget.config,
         'message': 'Widget data served'
     }
+
+
+@app.get('/widgets/{widget_id}/metrics')
+def widget_metrics(widget_id: str) -> Dict[str, Any]:
+    """Return simple metrics (views) for a widget from SQLite."""
+    try:
+        from db import get_conn
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) as views FROM widget_views WHERE widget_id=?", (widget_id,))
+        row = cur.fetchone()
+        conn.close()
+        return { 'widget_id': widget_id, 'views': (row[0] if row else 0) }
+    except Exception as _e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch widget metrics: {_e}")
+
+
+# ============================================
+# AUTHENTICATION ENDPOINTS
+# ============================================
+
+@app.post('/auth/register')
+async def register(user_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Register new user and return access token."""
+    from auth import create_user, create_access_token, UserCreate
+    
+    user_create = UserCreate(**user_data)
+    user = create_user(user_create)
+    access_token = create_access_token(data={"sub": user.email})
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user.dict()
+    }
+
+
+@app.post('/auth/login')
+async def login(credentials: Dict[str, Any]) -> Dict[str, Any]:
+    """Login user and return access token."""
+    from auth import authenticate_user, create_access_token
+    
+    user = authenticate_user(credentials.get('email'), credentials.get('password'))
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
+    
+    access_token = create_access_token(data={"sub": user.email})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user.dict()
+    }
+
+
+@app.get('/auth/me')
+async def get_me(current_user = Depends(lambda: None)):
+    """Get current authenticated user."""
+    from auth import get_current_user
+    if current_user is None:
+        # Manually call get_current_user with proper dependency injection
+        from fastapi.security import HTTPBearer
+        from fastapi import Request
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return current_user
+
 
 
 # Optional local run convenience

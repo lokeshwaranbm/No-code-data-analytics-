@@ -9,6 +9,9 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 
 const WorkflowBuilder = () => {
   const [workflows, setWorkflows] = useState([]);
+  const [expanded, setExpanded] = useState({});
+  const [runsByWf, setRunsByWf] = useState({});
+  const [loadingRuns, setLoadingRuns] = useState({});
   const [showBuilder, setShowBuilder] = useState(false);
   const [newWorkflow, setNewWorkflow] = useState({
     name: '',
@@ -78,6 +81,25 @@ const WorkflowBuilder = () => {
       fetchWorkflows();
     } catch (error) {
       console.error('Failed to delete workflow:', error);
+    }
+  };
+
+  const toggleRuns = async (workflowId) => {
+    const isOpen = !!expanded[workflowId];
+    const nextExpanded = { ...expanded, [workflowId]: !isOpen };
+    setExpanded(nextExpanded);
+    if (!isOpen && !runsByWf[workflowId]) {
+      try {
+        setLoadingRuns((prev) => ({ ...prev, [workflowId]: true }));
+        const resp = await fetch(`/workflows/${workflowId}/runs`);
+        const data = await resp.json();
+        setRunsByWf((prev) => ({ ...prev, [workflowId]: data.runs || [] }));
+      } catch (e) {
+        console.error('Failed to load runs:', e);
+        setRunsByWf((prev) => ({ ...prev, [workflowId]: [] }));
+      } finally {
+        setLoadingRuns((prev) => ({ ...prev, [workflowId]: false }));
+      }
     }
   };
 
@@ -254,6 +276,12 @@ const WorkflowBuilder = () => {
                           <PlayArrowIcon fontSize="small" />
                         </button>
                         <button
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => toggleRuns(wf.workflow_id)}
+                        >
+                          {expanded[wf.workflow_id] ? 'Hide Runs' : 'View Runs'}
+                        </button>
+                        <button
                           className="btn btn-sm btn-outline-danger"
                           onClick={() => deleteWorkflow(wf.workflow_id)}
                         >
@@ -261,6 +289,45 @@ const WorkflowBuilder = () => {
                         </button>
                       </div>
                     </div>
+                    {expanded[wf.workflow_id] && (
+                      <div className="mt-3 p-3 rounded" style={{ background: 'var(--surface-2, rgba(255,255,255,0.04))' }}>
+                        <div className="d-flex align-items-center justify-content-between mb-2">
+                          <strong className="small text-muted">Recent Runs</strong>
+                          {loadingRuns[wf.workflow_id] && <span className="small text-muted">Loading…</span>}
+                        </div>
+                        {(runsByWf[wf.workflow_id] || []).length === 0 ? (
+                          <div className="text-muted small">No runs yet.</div>
+                        ) : (
+                          <div className="table-responsive">
+                            <table className="table table-sm table-borderless align-middle mb-0">
+                              <thead>
+                                <tr className="text-muted small">
+                                  <th style={{ width: 80 }}>Run ID</th>
+                                  <th>Status</th>
+                                  <th>Started</th>
+                                  <th>Finished</th>
+                                  <th>Duration</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {runsByWf[wf.workflow_id].map((r) => {
+                                  const dur = (r.finished_at && r.started_at) ? (r.finished_at - r.started_at) : null;
+                                  return (
+                                    <tr key={r.id}>
+                                      <td className="small">#{r.id}</td>
+                                      <td className="small text-capitalize">{r.status}</td>
+                                      <td className="small">{new Date(r.started_at * 1000).toLocaleString()}</td>
+                                      <td className="small">{r.finished_at ? new Date(r.finished_at * 1000).toLocaleString() : '-'}</td>
+                                      <td className="small">{dur != null ? `${dur}s` : '-'}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

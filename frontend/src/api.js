@@ -1,4 +1,28 @@
 // Minimal API client for the prototype. Adjust base URL as needed.
+
+// Helper to get auth headers
+function getAuthHeaders() {
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    return { 'Authorization': `Bearer ${token}` };
+  }
+  return {};
+}
+
+// Helper to safely parse JSON responses
+async function safeJsonParse(response) {
+  const text = await response.text();
+  if (!text || text.trim() === '') {
+    throw new Error('Empty response from server');
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error('JSON parse error. Response text:', text);
+    throw new Error(`Invalid JSON response: ${text.substring(0, 100)}`);
+  }
+}
+
 export async function uploadCsv(file) {
   const form = new FormData();
   form.append('file', file);
@@ -17,29 +41,32 @@ export async function uploadCsv(file) {
   const resp = await fetch('/upload', {
     method: 'POST',
     body: form,
+    headers: getAuthHeaders(),
   });
 
   if (!resp.ok) {
     let detail = 'Unknown error';
     try {
-      const err = await resp.json();
+      const err = await safeJsonParse(resp);
       detail = err.detail || JSON.stringify(err);
     } catch (e) {
-      detail = await resp.text();
+      detail = e.message || 'Unknown error';
     }
     throw new Error(`Upload failed: ${detail}`);
   }
 
-  return resp.json();
+  return safeJsonParse(resp);
 }
 
 // Fetch inferred schema for a given original filename (not cleaned_ prefix)
 export async function fetchSchema(filename) {
-  const resp = await fetch(`/schema/${encodeURIComponent(filename)}`);
+  const resp = await fetch(`/schema/${encodeURIComponent(filename)}`, {
+    headers: getAuthHeaders()
+  });
   if (!resp.ok) {
     throw new Error(`Schema fetch failed: ${resp.status}`);
   }
-  return resp.json();
+  return safeJsonParse(resp);
 }
 
 // Request a visualization preset
@@ -47,28 +74,34 @@ export async function fetchSchema(filename) {
 export async function visualize(filename, payload) {
   const resp = await fetch(`/visualize/${encodeURIComponent(filename)}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      ...getAuthHeaders()
+    },
     body: JSON.stringify(payload)
   });
   if (!resp.ok) {
     let detail = 'Unknown error';
-    try { detail = (await resp.json()).detail; } catch {}
+    try { detail = (await safeJsonParse(resp)).detail; } catch {}
     throw new Error(`Visualization failed: ${detail}`);
   }
-  return resp.json();
+  return safeJsonParse(resp);
 }
 
 // Natural language to visualization
 export async function nlviz(filename, prompt) {
   const resp = await fetch(`/nlviz/${encodeURIComponent(filename)}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      ...getAuthHeaders()
+    },
     body: JSON.stringify({ prompt })
   });
   if (!resp.ok) {
     let detail = 'Unknown error';
-    try { detail = (await resp.json()).detail; } catch {}
+    try { detail = (await safeJsonParse(resp)).detail; } catch {}
     throw new Error(`NL Viz failed: ${detail}`);
   }
-  return resp.json();
+  return safeJsonParse(resp);
 }

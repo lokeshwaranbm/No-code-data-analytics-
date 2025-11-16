@@ -46,6 +46,10 @@ tmp/
 temp/
 data/
 *.sqlite3
+backend/cleaned_outputs/
+backend/no_code.db
+backend/embed_widgets/*.json
+backend/workflows/
 
 # Coverage
 coverage/

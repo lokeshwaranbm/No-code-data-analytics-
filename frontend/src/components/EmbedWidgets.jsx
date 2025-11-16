@@ -8,6 +8,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 
 const EmbedWidgets = () => {
   const [widgets, setWidgets] = useState([]);
+  const [metrics, setMetrics] = useState({});
   const [showBuilder, setShowBuilder] = useState(false);
   const [selectedWidget, setSelectedWidget] = useState(null);
   const [embedCode, setEmbedCode] = useState('');
@@ -61,6 +62,17 @@ const EmbedWidgets = () => {
       }
     } catch (error) {
       console.error('Failed to create widget:', error);
+    }
+  };
+
+  const loadMetrics = async (widgetId) => {
+    try {
+      const resp = await fetch(`/widgets/${widgetId}/metrics`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      setMetrics((prev) => ({ ...prev, [widgetId]: data.views }));
+    } catch (e) {
+      console.error('Failed to load widget metrics:', e);
     }
   };
 
@@ -244,8 +256,17 @@ const EmbedWidgets = () => {
                             <span className="badge bg-secondary">Disabled</span>
                           )}
                         </div>
-                        <div className="text-muted small mb-2">
-                          <strong>Views:</strong> {widget.view_count} • 
+                        <div className="text-muted small mb-2 d-flex align-items-center gap-2">
+                          <span>
+                            <strong>Views:</strong> {widget.view_count}
+                            {metrics[widget.widget_id] !== undefined && (
+                              <span className="ms-2">(DB: {metrics[widget.widget_id]})</span>
+                            )}
+                          </span>
+                          <button className="btn btn-xxs btn-outline-secondary" title="Refresh metrics" onClick={() => loadMetrics(widget.widget_id)}>
+                            <VisibilityIcon fontSize="inherit" />
+                          </button>
+                          <span className="ms-2">•</span>
                           <strong className="ms-2">Created:</strong> {new Date(widget.created_at).toLocaleDateString()}
                         </div>
                         {widget.security.allowed_domains.length > 0 && (
